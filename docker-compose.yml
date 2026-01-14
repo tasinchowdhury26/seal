@@ -1,0 +1,55 @@
+# Docker Compose - Multi-container setup
+# This file defines multiple containers that work together
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database Container
+  postgres:
+    image: postgres:15-alpine
+    container_name: seal-postgres
+    environment:
+      POSTGRES_DB: seal_db
+      POSTGRES_USER: seal_admin
+      POSTGRES_PASSWORD: seal
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist database data
+      - postgres_data:/var/lib/postgresql/data
+      # Initialize database with our schema
+      - ./database/tables.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seal_admin -d seal_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - seal-network
+
+  # Spring Boot Application Container
+  seal-app:
+    build: ./seal
+    container_name: seal-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Override database connection to use container name
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seal_db
+      SPRING_DATASOURCE_USERNAME: seal_admin
+      SPRING_DATASOURCE_PASSWORD: seal
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - seal-network
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+
+# Custom network for container communication
+networks:
+  seal-network:
+    driver: bridge

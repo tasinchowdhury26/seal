@@ -1,0 +1,48 @@
+# docker-compose.dev.yml - Development Environment
+# Use this for local development and testing
+
+services:
+  # PostgreSQL Database Container (Development)
+  postgres:
+    image: postgres:15-alpine
+    container_name: seal-postgres-dev
+    environment:
+      POSTGRES_DB: seal_db
+      POSTGRES_USER: seal_admin
+      POSTGRES_PASSWORD: seal
+    ports:
+      - "5434:5432"  # Use port 5434 on host to avoid conflict
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/tables.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seal_admin -d seal_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - seal-network
+
+  # Spring Boot Application Container (Development)
+  seal-app:
+    build: ./seal
+    container_name: seal-app-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seal_db
+      SPRING_DATASOURCE_USERNAME: seal_admin
+      SPRING_DATASOURCE_PASSWORD: seal
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - seal-network
+
+volumes:
+  postgres_data:
+
+networks:
+  seal-network:
+    driver: bridge

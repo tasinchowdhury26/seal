@@ -1,0 +1,30 @@
+# docker-compose.prod.yml - Production/CI-CD Environment
+# Use this for production deployments where database is external
+
+version: '3.8'
+
+services:
+  # Spring Boot Application Only (Production)
+  seal-app:
+    build: ./seal
+    container_name: seal-app-prod
+    ports:
+      - "8080:8080"
+    environment:
+      # External database connection (RDS, managed PostgreSQL, etc.)
+      SPRING_DATASOURCE_URL: ${DATABASE_URL}
+      SPRING_DATASOURCE_USERNAME: ${DATABASE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD}
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# No database service - uses external managed database
+# No volumes needed - stateless application
